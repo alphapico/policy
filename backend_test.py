@@ -26,10 +26,15 @@ class GraphQLTester:
         self.tests_passed = 0
         self.created_user_id = None
 
-    def run_test(self, name, query, variables=None, expected_status=200):
+    def run_test(self, name, query, variables=None, expected_status=200, use_direct_service=False):
         """Run a single GraphQL test"""
         self.tests_run += 1
-        print(f"\n🔍 Testing {name}...")
+        
+        # Choose which endpoint to use
+        graphql_url = self.direct_service_url if use_direct_service else self.backend_graphql_url
+        endpoint_type = "Direct Service" if use_direct_service else "Backend Gateway"
+        
+        print(f"\n🔍 Testing {name} via {endpoint_type} at {graphql_url}...")
         
         try:
             headers = {'Content-Type': 'application/json'}
@@ -39,7 +44,7 @@ class GraphQLTester:
             }
             
             response = requests.post(
-                self.graphql_url, 
+                graphql_url, 
                 json=payload,
                 headers=headers
             )
@@ -48,16 +53,21 @@ class GraphQLTester:
             
             if success:
                 result = response.json()
-                if 'errors' in result:
+                if 'errors' in result and result['errors']:
                     print(f"❌ Failed - GraphQL Errors: {json.dumps(result['errors'], indent=2)}")
                     return False, result
                 
                 self.tests_passed += 1
                 print(f"✅ Passed - Status: {response.status_code}")
+                if 'data' in result:
+                    print(f"📊 Data: {json.dumps(result['data'], indent=2)}")
                 return True, result
             else:
                 print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
-                return False, response.text
+                try:
+                    return False, response.json()
+                except:
+                    return False, response.text
 
         except Exception as e:
             print(f"❌ Failed - Error: {str(e)}")
