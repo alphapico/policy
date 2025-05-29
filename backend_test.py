@@ -73,7 +73,23 @@ class GraphQLTester:
             print(f"❌ Failed - Error: {str(e)}")
             return False, str(e)
 
-    def test_schema_introspection(self):
+    def test_backend_availability(self):
+        """Test if the backend is available"""
+        print(f"\n🔍 Testing Backend Availability at {self.backend_url}/api/...")
+        try:
+            response = requests.get(f"{self.backend_url}/api/")
+            if response.status_code == 200:
+                self.tests_passed += 1
+                print(f"✅ Backend is available - Status: {response.status_code}")
+                return True
+            else:
+                print(f"❌ Backend is not available - Status: {response.status_code}")
+                return False
+        except Exception as e:
+            print(f"❌ Failed to connect to backend - Error: {str(e)}")
+            return False
+            
+    def test_schema_introspection(self, use_direct_service=False):
         """Test GraphQL schema introspection"""
         introspection_query = """
         {
@@ -88,17 +104,28 @@ class GraphQLTester:
         
         success, result = self.run_test(
             "Schema Introspection",
-            introspection_query
+            introspection_query,
+            use_direct_service=use_direct_service
         )
         
         if success and 'data' in result and '__schema' in result['data']:
-            print("✅ Schema introspection successful")
-            return True
+            types = result['data']['__schema']['types']
+            print(f"✅ Schema introspection successful - Found {len(types)} types")
+            
+            # Check if UserType exists in schema
+            user_type_exists = any(t["name"] == "UserType" for t in types)
+            if user_type_exists:
+                print("✅ UserType found in schema")
+            else:
+                print("❌ UserType not found in schema")
+                success = False
+                
+            return success
         
         print("❌ Schema introspection failed")
         return False
 
-    def test_create_user(self, email, password, first_name, last_name):
+    def test_create_user(self, email, password, first_name, last_name, use_direct_service=False):
         """Test creating a user"""
         create_user_mutation = """
         mutation CreateUser($input: CreateUserDto!) {
@@ -125,18 +152,20 @@ class GraphQLTester:
         success, result = self.run_test(
             "Create User",
             create_user_mutation,
-            variables
+            variables,
+            use_direct_service=use_direct_service
         )
         
         if success and 'data' in result and 'createUser' in result['data']:
             user_data = result['data']['createUser']
-            print(f"✅ User created successfully: {user_data['firstName']} {user_data['lastName']}")
+            print(f"✅ User created successfully: {user_data['firstName']} {user_data['lastName']} with ID: {user_data['id']}")
+            self.created_user_id = user_data['id']
             return user_data
         
         print("❌ User creation failed")
         return None
 
-    def test_get_users(self):
+    def test_get_users(self, use_direct_service=False):
         """Test querying users"""
         get_users_query = """
         {
@@ -153,13 +182,24 @@ class GraphQLTester:
         
         success, result = self.run_test(
             "Get Users",
-            get_users_query
+            get_users_query,
+            use_direct_service=use_direct_service
         )
         
         if success and 'data' in result and 'users' in result['data']:
             users = result['data']['users']
             print(f"✅ Retrieved {len(users)} users")
-            return users
+            
+            # Check if our created user is in the list
+            if self.created_user_id:
+                created_user_found = any(user["id"] == self.created_user_id for user in users)
+                if created_user_found:
+                    print("✅ Created user found in users list")
+                else:
+                    print("❌ Created user not found in users list")
+                    success = False
+            
+            return users if success else None
         
         print("❌ User retrieval failed")
         return None
