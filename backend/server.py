@@ -54,6 +54,38 @@ async def get_status_checks():
     status_checks = await db.status_checks.find().to_list(1000)
     return [StatusCheck(**status_check) for status_check in status_checks]
 
+# GraphQL Proxy to User Service
+@api_router.post("/graphql")
+async def graphql_proxy(request: Request):
+    """Proxy GraphQL requests to the User Service"""
+    try:
+        body = await request.body()
+        headers = dict(request.headers)
+        
+        # Remove host header to avoid conflicts
+        headers.pop('host', None)
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:4001/api/graphql",
+                content=body,
+                headers=headers,
+                timeout=30.0
+            )
+            
+            return Response(
+                content=response.content,
+                status_code=response.status_code,
+                headers=dict(response.headers)
+            )
+    except Exception as e:
+        return {"error": f"GraphQL proxy error: {str(e)}"}
+
+@api_router.get("/graphql")
+async def graphql_playground():
+    """GraphQL Playground - redirect to User Service"""
+    return {"message": "GraphQL endpoint available at POST /api/graphql", "playground": "http://localhost:4001/api/graphql"}
+
 # Include the router in the main app
 app.include_router(api_router)
 
