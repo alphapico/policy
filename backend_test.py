@@ -3,12 +3,28 @@ import json
 import sys
 from datetime import datetime
 import uuid
+import os
 
 class GraphQLTester:
-    def __init__(self, graphql_url="http://localhost:4001/graphql"):
-        self.graphql_url = graphql_url
+    def __init__(self, backend_url=None, direct_service_url="http://localhost:4001/api/graphql"):
+        # Get backend URL from frontend .env file if not provided
+        if not backend_url:
+            try:
+                with open('/app/frontend/.env', 'r') as f:
+                    for line in f:
+                        if line.startswith('REACT_APP_BACKEND_URL='):
+                            backend_url = line.strip().split('=', 1)[1].strip('"\'')
+                            break
+            except Exception as e:
+                print(f"❌ Error reading .env file: {str(e)}")
+                backend_url = "http://localhost:8001"
+        
+        self.backend_url = backend_url
+        self.backend_graphql_url = f"{backend_url}/api/graphql"
+        self.direct_service_url = direct_service_url
         self.tests_run = 0
         self.tests_passed = 0
+        self.created_user_id = None
 
     def run_test(self, name, query, variables=None, expected_status=200):
         """Run a single GraphQL test"""
