@@ -13,7 +13,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  await app.listen(8001, '0.0.0.0'); // Use port 8001 to match the backend configuration
-  console.log('🚀 User Service running on http://localhost:8001/api/graphql');
+  await app.listen(4001, '0.0.0.0'); // Use port 4001 for User Service
+  console.log('🚀 User Service running on http://localhost:4001/api/graphql');
 }
 bootstrap();
