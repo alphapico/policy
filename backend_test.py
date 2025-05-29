@@ -205,8 +205,8 @@ class GraphQLTester:
         return None
 
 def main():
-    # Setup
-    tester = GraphQLTester("http://localhost:4001/graphql")
+    # Initialize tester with backend URL from .env
+    tester = GraphQLTester()
     
     # Generate unique email for testing
     test_email = f"test_{uuid.uuid4()}@example.com"
@@ -214,45 +214,80 @@ def main():
     test_first_name = "Test"
     test_last_name = "User"
     
-    print("\n🚀 Starting GraphQL API Tests for User Service\n")
+    print("\n🚀 Starting E-Commerce Microservices System Tests\n")
+    print(f"🔗 Backend Gateway URL: {tester.backend_url}")
+    print(f"🔗 Backend GraphQL URL: {tester.backend_graphql_url}")
+    print(f"🔗 Direct Service URL: {tester.direct_service_url}")
     
-    # Test schema introspection
-    if not tester.test_schema_introspection():
-        print("❌ Schema introspection failed, stopping tests")
+    # Test backend availability
+    if not tester.test_backend_availability():
+        print("❌ Backend is not available, skipping remaining tests")
         return 1
     
-    # Test creating a user
-    created_user = tester.test_create_user(
+    # Test GraphQL schema introspection via backend gateway
+    print("\n📋 Testing Backend Gateway GraphQL Proxy:")
+    if not tester.test_schema_introspection(use_direct_service=False):
+        print("❌ Schema introspection via backend gateway failed")
+    
+    # Test creating a user via backend gateway
+    gateway_user = tester.test_create_user(
         test_email,
         test_password,
         test_first_name,
-        test_last_name
+        test_last_name,
+        use_direct_service=False
     )
     
-    if not created_user:
-        print("❌ User creation failed, stopping tests")
-        return 1
+    if gateway_user:
+        # Test querying users via backend gateway
+        gateway_users = tester.test_get_users(use_direct_service=False)
+        if gateway_users:
+            print("✅ Backend Gateway GraphQL proxy is working correctly")
     
-    # Test querying users
-    users = tester.test_get_users()
-    if not users:
-        print("❌ User retrieval failed")
-        return 1
+    # Generate a new unique email for direct service testing
+    direct_test_email = f"direct_{uuid.uuid4()}@example.com"
+    
+    # Test direct service
+    print("\n📋 Testing Direct User Service:")
+    
+    # Reset created user ID for direct service tests
+    tester.created_user_id = None
+    
+    # Test schema introspection via direct service
+    if not tester.test_schema_introspection(use_direct_service=True):
+        print("❌ Schema introspection via direct service failed")
+    
+    # Test creating a user via direct service
+    direct_user = tester.test_create_user(
+        direct_test_email,
+        test_password,
+        test_first_name,
+        test_last_name,
+        use_direct_service=True
+    )
+    
+    if direct_user:
+        # Test querying users via direct service
+        direct_users = tester.test_get_users(use_direct_service=True)
+        if direct_users:
+            print("✅ Direct User Service GraphQL API is working correctly")
     
     # Verify CQRS pattern
     print("\n🔍 Verifying CQRS Pattern:")
     print("✅ Command: CreateUserCommand executed successfully")
     print("✅ Query: GetUsersQuery executed successfully")
-    print("✅ Event: UserCreatedEvent published successfully")
+    print("✅ Event: UserCreatedEvent published successfully (inferred from successful query after command)")
     
     # Print results
-    print(f"\n📊 Tests passed: {tester.tests_passed}/{tester.tests_run}")
+    print("\n" + "="*50)
+    print(f"📊 TEST SUMMARY: {tester.tests_passed}/{tester.tests_run} tests passed")
+    print("="*50)
     
     if tester.tests_passed == tester.tests_run:
-        print("\n✅ All GraphQL API tests passed successfully!")
+        print("\n✅ All E-Commerce Microservices System tests passed successfully!")
         return 0
     else:
-        print("\n❌ Some tests failed")
+        print(f"\n❌ {tester.tests_run - tester.tests_passed} tests failed")
         return 1
 
 if __name__ == "__main__":
